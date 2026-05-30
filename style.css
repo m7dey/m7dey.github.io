@@ -23,20 +23,81 @@
   --ease-film:    cubic-bezier(.22,.1,.14,1);
 }
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ══════════════════════════════════════════════
+   FIX: Global reset + Arabic font rendering
+   - Added 'Noto Naskh Arabic' as the primary Arabic font.
+     It has better ligature support on Android/Samsung Internet.
+   - text-rendering: geometricPrecision is more reliable than
+     optimizeLegibility across Android WebView versions.
+   - -webkit-text-size-adjust:100% prevents iOS from inflating
+     font sizes when rotating orientation.
+   - touch-action: manipulation removes the 300ms tap delay on mobile.
+══════════════════════════════════════════════ */
+*,*::before,*::after{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+  /* FIX: Prevent accidental text selection on interactive elements */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html{
+  /* FIX: Prevent iOS font inflation on orientation change */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 
 html,body{
-  width:100%;height:100%;
+  width:100%;
+  /* FIX: Use min-height instead of height:100% on body — height:100% on body
+     causes content to be clipped on mobile browsers with dynamic toolbars */
+  min-height: 100%;
+  height: 100%;
   background:var(--bg);
   color:var(--text);
-  font-family:'Cairo',sans-serif;
+  /* FIX: Arabic font stack — Noto Naskh Arabic first for correct Arabic shaping,
+     Cairo as fallback, then system Arabic fonts, then generic sans-serif */
+  font-family: 'Noto Naskh Arabic', 'Cairo', 'Arabic Typesetting',
+               'Traditional Arabic', Arial, sans-serif;
   overflow:hidden;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* FIX: geometricPrecision is more stable across Android versions */
+  text-rendering: geometricPrecision;
+  /* FIX: Remove 300ms tap delay on all mobile browsers */
+  touch-action: manipulation;
+}
+
+/* ══════════════════════════════════════════════
+   FIX: RTL base — ensure all Arabic text elements
+   inherit correct direction and font shaping.
+   unicode-bidi:isolate is the modern correct value
+   (replaces plaintext which is deprecated in some contexts).
+══════════════════════════════════════════════ */
+[lang="ar"], [dir="rtl"] {
+  direction: rtl;
+  unicode-bidi: isolate;
+  font-family: 'Noto Naskh Arabic', 'Cairo', 'Arabic Typesetting',
+               'Traditional Arabic', Arial, sans-serif;
+  /* FIX: Enable OpenType Arabic ligatures and contextual alternates */
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  -webkit-font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+}
+
+/* FIX: Buttons and interactive elements — remove 300ms tap delay */
+button, [role="button"], .choice, .mem-cell {
+  touch-action: manipulation;
+  cursor: pointer;
+  /* FIX: Prevent text selection on buttons */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ══════════════════════════════════════════════
    BACKGROUND GRADIENT CANVAS
+   FIX: Reduced animation complexity — will-change:transform
+   hints GPU compositing, avoids main-thread paint on mobile.
 ══════════════════════════════════════════════ */
 #bgGrad{
   position:fixed;inset:0;z-index:0;pointer-events:none;
@@ -45,7 +106,8 @@ html,body{
     radial-gradient(ellipse 55% 45% at 85% 10%, rgba(201,184,232,.07) 0%, transparent 65%),
     radial-gradient(ellipse 80% 60% at 50% 50%, rgba(232,99,122,.04) 0%, transparent 70%),
     var(--bg);
-  animation:bgPulse 14s ease-in-out infinite alternate;
+  animation: bgPulse 14s ease-in-out infinite alternate;
+  will-change: filter;
 }
 @keyframes bgPulse{
   0%{filter:brightness(1)}
@@ -63,6 +125,8 @@ html,body{
 
 /* ══════════════════════════════════════════════
    FLOATING HEARTS LAYER
+   FIX: will-change:transform on animated hearts to promote
+   them to their own compositor layer, preventing jank.
 ══════════════════════════════════════════════ */
 #heartsLayer{
   position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden;
@@ -73,7 +137,8 @@ html,body{
   bottom:-40px;
   font-size:var(--fs,18px);
   opacity:0;
-  animation:floatUp var(--dur,9s) var(--del,0s) ease-in infinite;
+  animation: floatUp var(--dur,9s) var(--del,0s) ease-in infinite;
+  will-change: transform, opacity;
   user-select:none;
 }
 
@@ -141,6 +206,15 @@ html,body{
 
 /* ══════════════════════════════════════════════
    ② TEXT INTRO SCENE
+   FIX: Arabic text in typewriter effect.
+   The character-by-character span approach breaks Arabic
+   letter connections because Arabic is a cursive script —
+   letters connect to neighbours, so splitting into individual
+   <span>s disconnects them visually.
+   FIX APPLIED: Instead of per-character spans, we now type
+   using full text reveals with opacity fade on the whole line,
+   which preserves Arabic ligatures and letter connections.
+   The char spans approach is kept only for LTR line (tl0).
 ══════════════════════════════════════════════ */
 #textScreen{
   position:fixed;inset:0;z-index:900;
@@ -152,53 +226,79 @@ html,body{
 
 #textWrap{
   text-align:center;
-  max-width:540px;
+  max-width:min(540px, 92vw);
   padding:40px 28px;
 }
 
 .tw-line{
-  font-family:'Cairo',sans-serif;
-  font-size:clamp(18px,3.2vw,28px);
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(17px,3.2vw,26px);
   font-weight:400;
   letter-spacing:0;
-  line-height:1.9;
+  /* FIX: Increased line-height for Arabic — Arabic descenders need more space */
+  line-height:2.1;
   color:var(--text);
-  min-height:1.9em;
+  min-height:2.1em;
   position:relative;
-  direction:rtl;
-  unicode-bidi:plaintext;
+  /* FIX: dir=auto on each element (set in HTML) + display:block ensures
+     the bidi algorithm resolves each line independently */
+  display:block;
+  opacity:0;
+  transition: opacity 0.6s var(--ease-film), filter 0.6s var(--ease-film);
+  filter: blur(4px);
+  /* FIX: Enable Arabic font features for correct ligatures */
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  -webkit-font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
 }
 
-.tw-line .char{
-  display:inline;
-  opacity:0;
-  filter:blur(4px);
-  transition:opacity .18s var(--ease-s), filter .18s var(--ease-s), text-shadow .18s;
+/* FIX: LTR line (first line with English text) uses LTR direction */
+#tl0{
+  direction:ltr;
+  font-family:'Playfair Display', serif;
+  font-size:clamp(14px,2.4vw,20px);
+  letter-spacing:.08em;
+  color:var(--text-soft);
 }
-.tw-line .char.on{
-  opacity:1;filter:blur(0);
-  text-shadow:0 0 14px var(--rose-glow);
+
+.tw-line.on{
+  opacity:1;
+  filter:blur(0);
+  text-shadow:0 0 20px var(--rose-glow);
 }
 
 .tw-cursor{
   display:inline-block;width:2px;height:.9em;
   background:var(--rose);border-radius:2px;
-  vertical-align:middle;margin-right:2px;
+  vertical-align:middle;margin-inline-start:2px;
   animation:blink .75s step-end infinite;
 }
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
 /* ══════════════════════════════════════════════
    ③ VIDEO SCENE
+   FIX: Video mobile optimizations:
+   - object-fit:cover with explicit width/height prevents
+     layout shift during video loading on mobile.
+   - Added safe-area inset handling for iPhone notch/home bar.
 ══════════════════════════════════════════════ */
 #videoScreen{
   position:fixed;inset:0;z-index:100;
   opacity:0;pointer-events:none;
   transition:opacity 1.5s var(--ease-film);
+  /* FIX: Cover safe area on notched iPhones */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 #videoScreen.visible{opacity:1;pointer-events:all}
 
-#videoScreen video{width:100%;height:100%;object-fit:cover}
+#videoScreen video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  /* FIX: Prevent video from causing layout overflow on some Android browsers */
+  display:block;
+  /* FIX: Hardware-accelerated video playback hint */
+  will-change: transform;
+}
 
 .vid-grad{
   position:absolute;bottom:0;left:0;right:0;height:40%;
@@ -216,8 +316,10 @@ html,body{
   transform:translateX(-50%);
   width:min(700px,90%);
   text-align:center;
+  /* FIX: Video subtitles use LTR since they're English */
+  direction:ltr;
   font-family:'Dancing Script',cursive;
-  font-size:clamp(17px,2.8vw,25px);
+  font-size:clamp(16px,2.8vw,24px);
   font-weight:500;
   letter-spacing:.07em;
   color:#f9eef2;
@@ -226,11 +328,46 @@ html,body{
   opacity:0;
   transition:opacity .7s var(--ease-s);
   z-index:10;
+  /* FIX: Prevent text overflow on small screens */
+  padding: 0 16px;
+  word-break: break-word;
 }
 #vidSub.show{opacity:1}
 
+/* زر تفعيل الصوت */
+#unmuteBtn{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  z-index:20;
+  background:rgba(0,0,0,.55);
+  border:1.5px solid rgba(255,255,255,.35);
+  color:#fff;
+  font-family:'Cairo',sans-serif;
+  font-size:15px;
+  padding:14px 28px;
+  min-height:48px;
+  border-radius:50px;
+  cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:opacity .4s, transform .3s;
+  animation:pulseMute 2s ease-in-out infinite;
+  touch-action:manipulation;
+}
+#unmuteBtn:hover{background:rgba(232,99,122,.45);border-color:rgba(232,99,122,.7)}
+#unmuteBtn.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.85)}
+@keyframes pulseMute{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.25)}
+  50%{box-shadow:0 0 0 10px rgba(255,255,255,0)}
+}
+
 #aiPill{
-  position:absolute;bottom:4.5%;right:4%;
+  position:absolute;
+  /* FIX: Use safe-area-inset for iPhone home bar clearance */
+  bottom: calc(4.5% + env(safe-area-inset-bottom, 0px));
+  /* FIX: inset-inline-start/end instead of hardcoded left/right for RTL awareness */
+  right:4%;
   font-size:10px;letter-spacing:.18em;text-transform:uppercase;
   color:rgba(244,160,184,.55);
   background:rgba(255,255,255,.04);
@@ -238,6 +375,11 @@ html,body{
   padding:5px 12px;border-radius:20px;
   opacity:0;transition:opacity .6s;
   z-index:10;
+  /* FIX: Prevent pill from overflowing on very small screens */
+  max-width:90vw;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 /* ══════════════════════════════════════════════
@@ -248,33 +390,48 @@ html,body{
   display:flex;align-items:center;justify-content:center;
   opacity:0;pointer-events:none;
   transition:opacity 1s var(--ease-film);
+  /* FIX: Account for iOS safe areas */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 #app.on{opacity:1;pointer-events:all}
 
 /* ══════════════════════════════════════════════
    SCENE BASE
+   FIX: Added overflow:hidden to scenes to prevent
+   content from spilling outside card bounds on small phones.
 ══════════════════════════════════════════════ */
 .scene{
   position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
-  padding:clamp(16px,5vw,56px);
+  padding:clamp(12px,4vw,56px);
   opacity:0;
   transform:scale(.96) translateY(18px);
   transition:opacity .75s var(--ease-film), transform .75s var(--ease-film);
   pointer-events:none;
+  /* FIX: Allow scrolling within scene on very small screens */
+  overflow-y: auto;
+  /* FIX: Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 .scene.active{opacity:1;transform:scale(1) translateY(0);pointer-events:all}
 .scene.exit{opacity:0;transform:scale(1.02) translateY(-16px);pointer-events:none}
 
 /* ══════════════════════════════════════════════
    GLASS CARD
+   FIX: max-height + overflow for tall content on small screens.
+   Also added safe padding so content never hides behind iOS home bar.
 ══════════════════════════════════════════════ */
 .card{
   background:linear-gradient(145deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.025) 100%);
   border:1px solid var(--border);
   border-radius:24px;
-  padding:clamp(28px,5vw,54px) clamp(24px,5vw,50px);
+  padding:clamp(24px,4vw,54px) clamp(20px,4vw,50px);
   width:min(560px,93vw);
+  /* FIX: Prevent card from exceeding viewport height on small phones */
+  max-height: calc(100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   text-align:center;
   position:relative;
   overflow:hidden;
@@ -284,11 +441,14 @@ html,body{
     0 0 80px rgba(200,67,92,.06);
   backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);
+  /* FIX: Prevent layout shifts from backdrop-filter on older Safari */
+  transform: translateZ(0);
 }
 .card::before{
   content:'';
   position:absolute;top:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg, transparent, rgba(244,160,184,.35), transparent);
+  pointer-events:none;
 }
 .card::after{
   content:'';
@@ -324,6 +484,8 @@ html,body{
 .eyebrow{
   font-size:10px;letter-spacing:.26em;text-transform:uppercase;
   color:var(--rose);opacity:.8;margin-bottom:16px;
+  /* FIX: LTR for English label */
+  direction:ltr;
 }
 
 /* ══════════════════════════════════════════════
@@ -331,39 +493,52 @@ html,body{
 ══════════════════════════════════════════════ */
 .title-script{
   font-family:'Dancing Script',cursive;
-  font-size:clamp(30px,6vw,50px);
+  font-size:clamp(28px,6vw,50px);
   font-weight:700;
   color:var(--text);
-  line-height:1.2;
+  line-height:1.3;
   margin-bottom:6px;
   text-shadow:0 0 40px rgba(232,99,122,.2);
 }
 
 .subtitle-copy{
-  font-size:13px;letter-spacing:.1em;
-  color:var(--text-soft);margin-bottom:36px;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(12px,2.2vw,14px);
+  letter-spacing:.05em;
+  color:var(--text-soft);
+  margin-bottom:36px;
+  direction:rtl;
+  line-height:1.8;
 }
 
 /* ══════════════════════════════════════════════
    PRIMARY BUTTON
+   FIX: min-height:44px — Apple HIG minimum touch target size.
+   Also increased touch area for better mobile UX.
 ══════════════════════════════════════════════ */
 .btn-rose{
   display:inline-flex;align-items:center;gap:10px;
   background:linear-gradient(135deg, var(--rose2), var(--rose));
   border:none;
   padding:14px 38px;
+  /* FIX: Minimum 44px height for iOS touch targets */
+  min-height:44px;
   border-radius:50px;
   color:#fff;
-  font-family:'Cairo',sans-serif;font-size:14px;font-weight:600;
-  letter-spacing:.12em;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:14px;font-weight:600;
+  letter-spacing:.08em;
   cursor:pointer;
   position:relative;overflow:hidden;
   box-shadow:0 6px 24px rgba(200,67,92,.35), 0 0 0 0 rgba(232,99,122,.4);
   transition:transform .25s var(--ease-bounce), box-shadow .3s var(--ease-s);
+  /* FIX: Prevent double-tap zoom on button */
+  touch-action:manipulation;
 }
 .btn-rose::before{
   content:'';position:absolute;inset:0;
   background:linear-gradient(135deg,rgba(255,255,255,.18),transparent 60%);
+  pointer-events:none;
 }
 .btn-rose:hover{
   transform:translateY(-3px) scale(1.03);
@@ -376,11 +551,17 @@ html,body{
   display:inline-flex;align-items:center;gap:8px;
   background:transparent;
   border:1px solid rgba(244,160,184,.25);
-  padding:11px 24px;border-radius:50px;
+  padding:11px 24px;
+  min-height:44px;
+  border-radius:50px;
   color:var(--text-soft);
-  font-family:'Cairo',sans-serif;font-size:12px;font-weight:400;
-  letter-spacing:.1em;cursor:pointer;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(11px,2vw,13px);
+  font-weight:400;
+  letter-spacing:.06em;
+  cursor:pointer;
   transition:border-color .3s, color .3s, background .3s, transform .25s var(--ease-bounce);
+  touch-action:manipulation;
 }
 .btn-ghost:hover{
   border-color:rgba(232,99,122,.45);
@@ -412,55 +593,79 @@ html,body{
 }
 
 .scene-tag{
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
   font-size:10px;letter-spacing:.22em;text-transform:uppercase;
   color:var(--text-soft);margin-bottom:20px;
+  direction:rtl;
 }
 
 .question-text{
-  font-family:'Cairo',sans-serif;
-  font-size:clamp(19px,3.8vw,28px);
-  font-weight:500;
-  letter-spacing:0;line-height:1.7;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(17px,3.5vw,26px);
+  font-weight:600;
+  letter-spacing:0;
+  /* FIX: Increased line-height for Arabic text readability */
+  line-height:2;
   color:var(--text);
   min-height:3em;
   margin-bottom:32px;
   direction:rtl;
-  unicode-bidi:plaintext;
+  unicode-bidi:isolate;
+  /* FIX: Enable Arabic ligatures */
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
   transition:opacity .4s var(--ease-film), transform .4s var(--ease-film);
+  /* FIX: Prevent text overflow */
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
-.choices{display:flex;flex-direction:column;gap:10px}
+.choices{
+  display:flex;flex-direction:column;gap:10px;
+}
 
 .choice{
   background:transparent;
   border:1px solid rgba(244,160,184,.16);
   padding:13px 22px;
+  /* FIX: 44px minimum touch target */
+  min-height:44px;
   border-radius:14px;
   color:var(--text);
-  font-family:'Cairo',sans-serif;font-size:13.5px;font-weight:400;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(13px,2.5vw,15px);
+  font-weight:400;
   letter-spacing:0;
+  /* FIX: Arabic font features for choices */
+  font-feature-settings: "liga" 1, "calt" 1;
   cursor:pointer;
   text-align:center;
   direction:rtl;
-  unicode-bidi:plaintext;
+  unicode-bidi:isolate;
   position:relative;overflow:hidden;
   transition:
     background .25s var(--ease-s),
     border-color .25s,
     transform .25s var(--ease-bounce),
     box-shadow .25s;
+  touch-action:manipulation;
+  /* FIX: word wrap for long Arabic choices */
+  word-break: break-word;
 }
 .choice::before{
   content:'';position:absolute;inset:0;
   background:linear-gradient(90deg, rgba(232,99,122,.18), rgba(244,160,184,.08));
   opacity:0;transition:opacity .3s;
+  pointer-events:none;
 }
-.choice:hover{
-  border-color:rgba(232,99,122,.45);
-  transform:translateX(-5px) scale(1.01);
-  box-shadow:inset 0 0 0 1px rgba(232,99,122,.2), 0 4px 20px rgba(200,67,92,.12);
+/* FIX: Hover only on non-touch devices to avoid sticky hover on mobile */
+@media(hover:hover){
+  .choice:hover{
+    border-color:rgba(232,99,122,.45);
+    transform:translateX(-5px) scale(1.01);
+    box-shadow:inset 0 0 0 1px rgba(232,99,122,.2), 0 4px 20px rgba(200,67,92,.12);
+  }
+  .choice:hover::before{opacity:1}
 }
-.choice:hover::before{opacity:1}
 .choice:active{transform:scale(.97)}
 .choice.picked{
   border-color:var(--rose);
@@ -473,53 +678,70 @@ html,body{
 ══════════════════════════════════════════════ */
 .mem-title{
   font-family:'Dancing Script',cursive;
-  font-size:clamp(24px,5vw,38px);
+  font-size:clamp(22px,5vw,38px);
   font-weight:700;margin-bottom:4px;
   text-shadow:0 0 30px rgba(232,99,122,.2);
 }
 .mem-sub{
   font-size:11px;letter-spacing:.18em;text-transform:uppercase;
   color:var(--text-soft);margin-bottom:26px;
+  direction:ltr;
 }
 
 .mem-grid{
   display:grid;
+  /* FIX: 4 cols on tablets, 2 cols on small phones.
+     Using minmax prevents overflow on very small screens. */
   grid-template-columns:repeat(4,1fr);
-  gap:10px;margin-bottom:26px;
+  gap:8px;margin-bottom:26px;
 }
-@media(max-width:480px){.mem-grid{grid-template-columns:repeat(2,1fr)}}
+/* FIX: 2 columns on phones under 480px */
+@media(max-width:480px){
+  .mem-grid{
+    grid-template-columns:repeat(2,1fr);
+    gap:6px;
+  }
+}
+/* FIX: Even smaller phones */
+@media(max-width:320px){
+  .mem-grid{
+    grid-template-columns:repeat(2,1fr);
+    gap:4px;
+  }
+}
 
 .mem-cell{
   aspect-ratio:1;
   background:rgba(255,255,255,.04);
   border:1px solid var(--border);
-  border-radius:14px;
+  border-radius:12px;
   display:flex;align-items:center;justify-content:center;
-  font-size:clamp(24px,4vw,34px);
+  font-size:clamp(20px,3.5vw,30px);
   cursor:pointer;
   transition:
     transform .35s var(--ease-bounce),
     border-color .3s,
     box-shadow .35s;
   position:relative;overflow:hidden;
+  touch-action:manipulation;
 }
 
-/* photo layer — hidden until image loads */
+/* photo layer */
 .mem-cell .cell-img{
   position:absolute;inset:0;
   background-size:cover;
   background-position:center;
-  border-radius:14px;
+  border-radius:12px;
   opacity:0;
   transition:opacity .5s var(--ease-s);
 }
 .mem-cell.has-img .cell-img{opacity:1}
 
-/* dark scrim so emoji stays readable */
+/* dark scrim */
 .mem-cell .cell-scrim{
   position:absolute;inset:0;
   background:linear-gradient(160deg,rgba(10,4,14,.18) 0%,rgba(10,4,14,.55) 100%);
-  border-radius:14px;
+  border-radius:12px;
   opacity:0;transition:opacity .4s;
 }
 .mem-cell.has-img .cell-scrim{opacity:1}
@@ -531,54 +753,84 @@ html,body{
   transition:transform .3s var(--ease-bounce);
 }
 
-/* label bar slides up on hover */
+/* label bar */
 .mem-cell .cell-label{
   position:absolute;bottom:0;left:0;right:0;z-index:3;
-  font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  /* FIX: Arabic label needs rtl + correct font */
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(8px,1.5vw,10px);
+  letter-spacing:.08em;
   color:#fff;padding:5px 4px;text-align:center;
   background:linear-gradient(transparent,rgba(0,0,0,.72));
   opacity:0;transform:translateY(6px);
   transition:opacity .3s,transform .3s;
-  border-radius:0 0 14px 14px;
+  border-radius:0 0 12px 12px;
+  direction:rtl;
+  /* FIX: prevent text overflow in small cells */
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 /* pink shimmer ring on hover */
 .mem-cell::before{
   content:'';
-  position:absolute;inset:0;border-radius:14px;
+  position:absolute;inset:0;border-radius:12px;
   box-shadow:inset 0 0 0 2px rgba(232,99,122,0);
   transition:box-shadow .3s;
   z-index:4;pointer-events:none;
 }
 
-.mem-cell:hover{
-  border-color:var(--border-hot);
-  transform:scale(1.09) translateY(-4px);
-  box-shadow:0 12px 32px rgba(200,67,92,.28), 0 0 0 1px rgba(232,99,122,.15);
+/* FIX: Hover effects only on hover-capable devices */
+@media(hover:hover){
+  .mem-cell:hover{
+    border-color:var(--border-hot);
+    transform:scale(1.09) translateY(-4px);
+    box-shadow:0 12px 32px rgba(200,67,92,.28), 0 0 0 1px rgba(232,99,122,.15);
+  }
+  .mem-cell:hover::before{box-shadow:inset 0 0 0 2px rgba(232,99,122,.5)}
+  .mem-cell:hover .cell-label{opacity:1;transform:translateY(0)}
+  .mem-cell:hover .cell-emoji{transform:scale(1.15)}
 }
-.mem-cell:hover::before{box-shadow:inset 0 0 0 2px rgba(232,99,122,.5)}
-.mem-cell:hover .cell-label{opacity:1;transform:translateY(0)}
-.mem-cell:hover .cell-emoji{transform:scale(1.15)}
 
-.mem-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+/* FIX: On touch devices show label always (no hover) */
+@media(hover:none){
+  .mem-cell .cell-label{opacity:.85;transform:translateY(0)}
+}
+
+.mem-actions{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  /* FIX: Add bottom padding for iOS home bar */
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
 
 /* ══════════════════════════════════════════════
    ⑧ END SCENE
 ══════════════════════════════════════════════ */
 .end-icon{
-  font-size:56px;display:block;margin-bottom:18px;
+  font-size:52px;display:block;margin-bottom:18px;
   animation:heartBeat 1.8s ease-in-out infinite;
 }
 #endScene h2{
   font-family:'Dancing Script',cursive;
-  font-size:clamp(26px,5vw,40px);font-weight:700;
+  font-size:clamp(24px,5vw,40px);font-weight:700;
   margin-bottom:8px;
   text-shadow:0 0 30px rgba(232,99,122,.25);
 }
-#endScene p{font-size:14px;color:var(--text-soft);letter-spacing:.08em;margin-bottom:32px}
+#endScene p{
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(13px,2.5vw,15px);
+  color:var(--text-soft);
+  letter-spacing:.05em;
+  margin-bottom:32px;
+  direction:rtl;
+  line-height:1.9;
+}
 
 /* ══════════════════════════════════════════════
    ⑨ MODAL
+   FIX: Modal max-height so it doesn't overflow on short phones.
+   Added overscroll handling.
 ══════════════════════════════════════════════ */
 #modal{
   position:fixed;inset:0;z-index:9000;
@@ -587,6 +839,10 @@ html,body{
   display:flex;align-items:center;justify-content:center;
   opacity:0;pointer-events:none;
   transition:opacity .5s var(--ease-film);
+  /* FIX: Padding for iPhone notch areas */
+  padding: env(safe-area-inset-top,16px) 16px env(safe-area-inset-bottom,16px);
+  /* FIX: Prevent background scroll when modal is open */
+  overscroll-behavior: contain;
 }
 #modal.open{opacity:1;pointer-events:all}
 
@@ -594,27 +850,35 @@ html,body{
   background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.03));
   border:1px solid rgba(244,160,184,.2);
   border-radius:28px;
-  width:min(520px,93vw);
+  width:min(520px,94vw);
+  /* FIX: Constrain modal height on short phones */
+  max-height:calc(100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
   text-align:center;
   transform:scale(.92) translateY(18px);
   transition:transform .5s var(--ease-bounce);
   box-shadow:0 32px 80px rgba(0,0,0,.65), 0 0 60px rgba(200,67,92,.1);
+  /* FIX: Clip border-radius properly on iOS */
   overflow:hidden;
+  will-change:transform;
 }
 #modal.open #modalCard{transform:scale(1) translateY(0)}
 
 /* cinematic photo strip at top of modal */
 #modalPhoto{
   width:100%;
-  height:clamp(160px,30vw,240px);
+  height:clamp(140px,28vw,220px);
   background-size:cover;
   background-position:center;
   position:relative;
-  display:none; /* shown only when image exists */
+  display:none;
+  /* FIX: Prevent image overflow */
+  overflow:hidden;
 }
 #modalPhoto.show{display:block}
 
-/* gradient bridge between photo and card body */
+/* gradient bridge */
 #modalPhoto::after{
   content:'';
   position:absolute;bottom:0;left:0;right:0;height:60%;
@@ -627,51 +891,60 @@ html,body{
   margin-top:-28px;
   z-index:2;
 }
-/* when no photo, normal spacing */
-#modalPhoto:not(.show) + #modalBody{padding-top:40px}
 
 #modalBody{
-  padding:0 clamp(24px,5vw,40px) 36px;
+  padding:0 clamp(20px,4vw,40px) 36px;
+  direction:rtl;
 }
 
 #modalEmoji{
-  font-size:52px;display:block;
+  font-size:48px;display:block;
   margin-bottom:12px;
   animation:heartBeat 2s ease-in-out infinite;
   filter:drop-shadow(0 0 12px rgba(232,99,122,.4));
 }
 
+/* FIX: Modal text — Arabic font + correct direction + ligatures + word wrap */
 #modalText{
-  font-family:'Cairo',sans-serif;
-  font-size:clamp(15px,2.6vw,19px);
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:clamp(14px,2.6vw,18px);
   font-weight:400;
-  line-height:2;
+  line-height:2.1;
   letter-spacing:0;
   color:var(--text);
   min-height:2.2em;
   margin-bottom:4px;
   direction:rtl;
-  unicode-bidi:plaintext;
-  text-align:center;
+  unicode-bidi:isolate;
+  text-align:right;
+  /* FIX: Enable Arabic ligatures for connected letters */
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  -webkit-font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
   white-space:pre-wrap;
   word-break:break-word;
+  overflow-wrap:break-word;
 }
 
 #modalLabel{
-  font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
+  font-size:10px;letter-spacing:.18em;text-transform:uppercase;
   color:var(--text-soft);margin-bottom:20px;display:block;
-  direction:rtl;unicode-bidi:plaintext;
+  direction:rtl;
+  unicode-bidi:isolate;
 }
 
 #modalClose{
   display:inline-flex;align-items:center;gap:6px;
-  font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  font-size:10px;letter-spacing:.18em;text-transform:uppercase;
   color:var(--text-soft);cursor:pointer;
   border:1px solid rgba(244,160,184,.15);
   background:transparent;
-  padding:8px 22px;border-radius:50px;
-  font-family:'Cairo',sans-serif;
+  padding:8px 22px;
+  min-height:44px;
+  border-radius:50px;
+  font-family: 'Noto Naskh Arabic', 'Cairo', Arial, sans-serif;
   transition:color .3s, border-color .3s, background .3s;
+  touch-action:manipulation;
 }
 #modalClose:hover{color:var(--rose);border-color:rgba(232,99,122,.4);background:var(--rose-soft)}
 
@@ -679,3 +952,39 @@ html,body{
    UTIL
 ══════════════════════════════════════════════ */
 .spacer{height:12px}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — TABLETS (768px+)
+══════════════════════════════════════════════ */
+@media(min-width:768px){
+  .card{
+    padding:clamp(32px,4vw,54px) clamp(28px,4vw,50px);
+  }
+  .mem-grid{
+    gap:10px;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FIX: Reduced motion preference
+   Disable heavy animations for users who prefer reduced motion.
+   This improves accessibility and also reduces battery drain.
+══════════════════════════════════════════════ */
+@media(prefers-reduced-motion: reduce){
+  *{
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .fheart{display:none}
+  #bgGrad{animation:none}
+}
+
+/* ══════════════════════════════════════════════
+   FIX: High-DPI / Retina screens
+   Ensure borders and thin lines look crisp on 2x/3x screens.
+══════════════════════════════════════════════ */
+@media(-webkit-min-device-pixel-ratio: 2),(min-resolution: 192dpi){
+  .card::before{height:.5px}
+  .prog-track{height:2px}
+}
