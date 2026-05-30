@@ -706,8 +706,21 @@ function modalBackdropClick(e){
    MUSIC
 ══════════════════════════════════════════════ */
 function playSong2(){
+  const s2 = document.getElementById('song2');
+  const btns = document.querySelectorAll('.mem-actions .btn-ghost');
+  const btn = btns[0]; // first ghost button = song button
+
+  if(!s2.paused){
+    // already playing -> stop
+    fadeOutAudio(s2, 800);
+    if(btn) btn.innerHTML = '🎵 <span lang="ar">أغنية الذكريات</span>';
+    return;
+  }
+
+  // stop song1 then fade in song2
   fadeOutAudio(document.getElementById('song1'), 800);
-  setTimeout(()=> fadeInAudio(document.getElementById('song2'), 0.5, 2500), 600);
+  setTimeout(()=> fadeInAudio(s2, 0.5, 2500), 600);
+  if(btn) btn.innerHTML = '⏹ <span lang="ar">إيقاف الأغنية</span>';
 }
 
 function restartStory(){
