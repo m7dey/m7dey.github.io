@@ -705,22 +705,34 @@ function modalBackdropClick(e){
 /* ══════════════════════════════════════════════
    MUSIC
 ══════════════════════════════════════════════ */
+let song2Playing = false;
+
 function playSong2(){
+  const s1 = document.getElementById('song1');
   const s2 = document.getElementById('song2');
   const btns = document.querySelectorAll('.mem-actions .btn-ghost');
-  const btn = btns[0]; // first ghost button = song button
+  const btn = btns[0];
 
-  if(!s2.paused){
-    // already playing -> stop
+  if(song2Playing){
+    // وقّف الأغنية
+    song2Playing = false;
     fadeOutAudio(s2, 800);
     if(btn) btn.innerHTML = '🎵 <span lang="ar">أغنية الذكريات</span>';
     return;
   }
 
-  // stop song1 then fade in song2
-  fadeOutAudio(document.getElementById('song1'), 800);
-  setTimeout(()=> fadeInAudio(s2, 0.5, 2500), 600);
+  // وقّف الاثنين أولاً بشكل فوري
+  s1.pause(); s1.volume = 0;
+  s2.pause(); s2.volume = 0;
+  s2.currentTime = 0;
+
+  song2Playing = true;
   if(btn) btn.innerHTML = '⏹ <span lang="ar">إيقاف الأغنية</span>';
+
+  // شغّل song2 بعد توقف كامل
+  setTimeout(()=>{
+    if(song2Playing) fadeInAudio(s2, 0.5, 2500);
+  }, 200);
 }
 
 function restartStory(){
