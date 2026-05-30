@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Story ❤️</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Cairo:wght@300;400;600&family=Dancing+Script:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- atmosphere -->
+<div id="bgGrad"></div>
+<div id="vignette"></div>
+<div id="heartsLayer"></div>
+
+<!-- burst canvas -->
+<canvas id="burstCanvas"></canvas>
+
+<!-- chapter wipe -->
+<div id="wipe"></div>
+
+<!-- ══════════════════════════════════
+     ① NETFLIX INTRO
+══════════════════════════════════ -->
+<div id="netflixScreen">
+  <div class="n-logo">NETFLIX</div>
+</div>
+
+<!-- ══════════════════════════════════
+     ② TEXT INTRO
+══════════════════════════════════ -->
+<div id="textScreen">
+  <div id="textWrap" dir="rtl">
+    <p class="tw-line" id="tl0"></p>
+    <p class="tw-line" id="tl1"></p>
+    <p class="tw-line" id="tl2"></p>
+    <p class="tw-line" id="tl3"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     ③ VIDEO
+══════════════════════════════════ -->
+<div id="videoScreen">
+  <video id="mainVideo" autoplay playsinline>
+    <source src="intro.mp4" type="video/mp4">
+  </video>
+  <div class="vid-grad-top"></div>
+  <div class="vid-grad"></div>
+  <div id="vidSub"></div>
+  <div id="aiPill"></div>
+</div>
+
+<!-- ══════════════════════════════════
+     ④ MAIN APP
+══════════════════════════════════ -->
+<div id="app">
+
+  <!-- START -->
+  <div class="scene" id="startScene">
+    <div class="card">
+      <p class="eyebrow">A Netflix Original Experience</p>
+      <div class="deco"><span class="deco-heart">🌸</span></div>
+      <h1 class="title-script">قصتنا ❤️</h1>
+      <p class="subtitle-copy">تجربة رومانسية سينمائية تفاعلية</p>
+      <button class="btn-rose" onclick="startStory()">
+        ابدئي &nbsp;▶
+      </button>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="scene" id="quizScene">
+    <div class="card">
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <p class="scene-tag" id="sceneTag">لحظة ١ / ١٠</p>
+      <div class="question-text" id="qText"></div>
+      <div class="choices" id="choicesWrap"></div>
+    </div>
+  </div>
+
+  <!-- MEMORIES -->
+  <div class="scene" id="memoriesScene">
+    <div class="card">
+      <div class="deco"><span class="deco-heart">💖</span></div>
+      <h2 class="mem-title">الذكريات</h2>
+      <p class="mem-sub">Memories Gallery</p>
+      <div class="mem-grid" id="memGrid"></div>
+      <div class="mem-actions">
+        <button class="btn-ghost" onclick="playSong2()">🎵 أغنية الذكريات</button>
+        <button class="btn-ghost" onclick="restartStory()">↺ من البداية</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div class="scene" id="endScene">
+    <div class="card">
+      <span class="end-icon">❤️</span>
+      <div class="deco"><span class="deco-heart">🌙</span></div>
+      <h2>هاي إنتِ 🌙</h2>
+      <p>شكراً إنك كنتِ وبتكوني</p>
+      <button class="btn-rose" onclick="goToMemories()">📚 الذكريات</button>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ══════════════════════════════════
+     MODAL
+══════════════════════════════════ -->
+<div id="modal" onclick="modalBackdropClick(event)">
+  <div id="modalCard" dir="rtl">
+    <!-- cinematic photo strip -->
+    <div id="modalPhoto"></div>
+    <!-- body -->
+    <div id="modalBody" dir="rtl">
+      <div id="modalEmojiWrap">
+        <span id="modalEmoji"></span>
+      </div>
+      <div class="deco"><span class="deco-heart">✨</span></div>
+      <span id="modalLabel"></span>
+      <p id="modalText"></p>
+      <button id="modalClose" onclick="closeModal()">✕ &nbsp; إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUDIO -->
+<audio id="song1" loop><source src="song1.mp3" type="audio/mpeg"></audio>
+<audio id="song2" loop><source src="song2.mp3" type="audio/mpeg"></audio>
+
+<script src="script.js" defer></script>
+</body>
+</html>
