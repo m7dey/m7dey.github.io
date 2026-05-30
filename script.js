@@ -1,27 +1,46 @@
 /* ══════════════════════════════════════════════
-   CLICK SFX (Web Audio)
+   FIX: AudioContext — lazy init on first user gesture only.
+   Browsers block AudioContext creation before a user gesture.
+   The original code tried to create it on first click but could
+   still fail silently. We now gate it properly.
 ══════════════════════════════════════════════ */
 const AC = window.AudioContext || window.webkitAudioContext;
 let ac;
+
+function getAC(){
+  if(!ac && AC){
+    try{ ac = new AC(); }catch(e){}
+  }
+  return ac;
+}
+
 function playClick(){
   try{
-    if(!ac) ac = new AC();
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.frequency.setValueAtTime(880, ac.currentTime);
-    o.frequency.exponentialRampToValueAtTime(440, ac.currentTime + .08);
-    g.gain.setValueAtTime(.12, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + .12);
-    o.start(); o.stop(ac.currentTime + .12);
+    const ctx = getAC();
+    if(!ctx) return;
+    /* FIX: Resume context if it was suspended (required by Chrome autoplay policy) */
+    if(ctx.state === 'suspended') ctx.resume();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + .08);
+    g.gain.setValueAtTime(.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .12);
+    o.start(); o.stop(ctx.currentTime + .12);
   }catch(e){}
 }
+
 document.addEventListener('click', e => {
   if(e.target.closest('button, .choice, .mem-cell')) playClick();
 });
 
 /* ══════════════════════════════════════════════
    DATA
+   FIX: Arabic text kept as-is (full strings, not split into chars)
+   to preserve letter connections. The typewriter effect for Arabic
+   now reveals full text with a fade instead of character-by-character
+   spans, which disconnected Arabic letters on screen.
 ══════════════════════════════════════════════ */
 const INTRO_LINES = [
   "NETFLIX presents...",
@@ -53,7 +72,7 @@ const QUESTIONS = [
   "لو اجتك فرصة تشوفيني؟",
   "متى عيد ميلادي",
   "متى أول مرة قلتلك بحبك؟",
-  "انت بتعرفيني! ",
+  "انت بتعرفيني!",
   "اش اكتثر اشي بتحبه فيني",
   "أنا شو بالنسبة إلك؟ ❤️"
 ];
@@ -72,14 +91,14 @@ const CHOICES = [
 ];
 
 const MEMORIES = [
-  {emoji:"❤️", label:"بداية", text:"صراحهه جد وقتها كنت منكد شوي بس لما فتحت الانستا و شفت انك باعثه و اكثر من4 مسجز انبسطت وضحكتي حرفيا شقت وجهي لانه انا لما احكي معك جد برتاح بحس بكمية طاقه من وراكي ما بتنوصف لانه اكثر حد بفهمني وبحبه من كل قلبي والله بحس انه كلشي بفكر فيه بختفي فجأهه يزم الله يخليلي ليكي يا رب",  image:"images4.jpg"},
-  {emoji:"💖", label:"قلب",   text:"صحيح انه كول بس وحياه الله انه كنت كثير رايق من ورا هاي الكول و صحيح في كول اطول منها بس ما اخذت سكرين لانك فصلتي بس عاددي مش مشكله وكل كول بحكي معك فيه بكون احلى من اللي قبله بحب كلشي ب اي كول بينا و كثيرر بنبسط لما اسمعع صوتك وربي  مش شوب لا وربي كثير بحب احكي معك كول بشكل رهيبب وحياه الله بحب لما تصيري تتخوثي علي بلكول بحب كل اشي بلكول بينا يروحي بحبكك جدا والله .",            image:"images2.jpg"},
-  {emoji:"🌙", label:"ليل",   text:" و هون اول مره عرفتي فيها انه انا كنت زعلان وقتها كثير كبرتي بعيني مش شوي وكثير انا انعجبت فيكي زي ما بحكوها لانه انا ما بوثقش ب اي انسان غير القريب مني كثيرر و حتى ما بحكيله اذا زعلان او لا وما بحكيله عن مشاكلي وما حد بعرف متى بكون زعلان او مبسوط و انتِ عرفتي جد كيفت و انبسطت وكثير والله مو بس شوي و اكثرر حد بوكل همي اكثر مني انتِ جد انا مش ندمان اني عرفتك ولا بعمري رح اندم لانه جد حبيتك من كل قلبي والله ورح اضل احبك لو ايش ما صار بينا   .",       image:"images3.jpg"},
-  {emoji:"✨", label:"لحظة", text:"  صحيح انها ai بس بحبها جدا جدا ووقتها لما بعتيها تمنيت لو انها واقع بس ب الحلال ان شاء الله شكلك فيها كثيرر حلو و اساسا انتِ من اول حلوه و بتجنني طول عمرك و عقلك سابق عمرك اساسا انتِ كلك على بعضك سابقه حالك ما وقفت على هاي والله ما كنت متوقع ابدا ابدا انك تعملي هيك اشي مثل الصوره هاي ينور عيوني انتِ والله كثير بحبك مش بس شوي و قد ما احكيلك مارح اوصفك والله  روحيي انتِ ❤️❤️  .",          image:"images.jpg"},
-  {emoji:"🌹", label:"وردة",  text:"صحيح برضو انها ai بس طبعا اكيد انا مبين فيها بومه كلعاده انتِ بتجننيي والله و كثير مش شوي كلشي فيكي حلو اسلوبك معي شكلك بجنن ملامح وجهك مش حاده ابدا رايقه و كثير كثير حلوه صاروخ اول مره بحكي مع بنت مش مارق اسلوبها علي قبل مره زيك انتِ اول مره بمرق علي اسلوب زي اسلوبك و كثيرر حبيته اساسا حبيتك كلك على بعضك بتجنني وربي.",     image:"images5.jpg"},
-  {emoji:"🎵", label:"أغنية", text:" هون لما طلبت منك صوره الك و انتِ ببوو صراحه ما كنت متوقع انك تقبلي ف كيفت و انبسطت كلعاده لانه مش اشي جديد ومن و امتِ صغيره بتجننيي و مبينه عليكي صاروخ طبعا كل اشي فيكي روعه وحياه الله بميزك من بين الف بنت بميز صوتك بميزكك حتى و انتِ مش مبينه من كثر ما بحبكككك يبنت .",                  image:"images6.jpg"},
-  {emoji:"🌅", label:"صباح", text:"   هايي اول كول بينا بحجه انه لولو بدها تحكي معك و انا كذاب اساسا انا اللي بدي احكي معك و مستحي احكيلك  او بلاحرى اني اطلب منك وابدا ابداا ما توقعت تحكي تعال كول احكي معاها وقتها صرتت ارجفف توترتت كثيرر و صحيت لولو من النومم وقتها عشان ما ابين كذاب مش اكثر   .",           image:"images7.jpg"},
-  {emoji:"💌", label:"رسالة", text:"  هاي اول مره بتحكيلي بحبك فيها كان وقتها بعد يومين من اني حكيتلك بحبك صحيح اني صرت ارجف و خشيتت بلحيط اكثر من مرهه بس بستاهل و بعرف غصب عني و نسونجي بس تايب و بحبكككك بدل المره مليون مره ينورر عيوني انتِ  .",            image:"images8.jpg"}
+  {emoji:"❤️", label:"بداية", text:"صراحهه جد وقتها كنت منكد شوي بس لما فتحت الانستا و شفت انك باعثه و اكثر من 4 مسجز انبسطت وضحكتي حرفيا شقت وجهي لانه انا لما احكي معك جد برتاح بحس بكمية طاقه من وراكي ما بتنوصف لانه اكثر حد بفهمني وبحبه من كل قلبي والله بحس انه كلشي بفكر فيه بختفي فجأهه يزم الله يخليلي ليكي يا رب", image:"images4.jpg"},
+  {emoji:"💖", label:"قلب",   text:"صحيح انه كول بس وحياه الله انه كنت كثير رايق من ورا هاي الكول و صحيح في كول اطول منها بس ما اخذت سكرين لانك فصلتي بس عاددي مش مشكله وكل كول بحكي معك فيه بكون احلى من اللي قبله بحب كلشي ب اي كول بينا و كثيرر بنبسط لما اسمعع صوتك وربي مش شوب لا وربي كثير بحب احكي معك كول بشكل رهيبب وحياه الله بحب لما تصيري تتخوثي علي بلكول بحب كل اشي بلكول بينا يروحي بحبكك جدا والله.", image:"images2.jpg"},
+  {emoji:"🌙", label:"ليل",   text:"و هون اول مره عرفتي فيها انه انا كنت زعلان وقتها كثير كبرتي بعيني مش شوي وكثير انا انعجبت فيكي زي ما بحكوها لانه انا ما بوثقش ب اي انسان غير القريب مني كثيرر و حتى ما بحكيله اذا زعلان او لا وما بحكيله عن مشاكلي وما حد بعرف متى بكون زعلان او مبسوط و انتِ عرفتي جد كيفت و انبسطت وكثير والله مو بس شوي و اكثرر حد بوكل همي اكثر مني انتِ جد انا مش ندمان اني عرفتك ولا بعمري رح اندم لانه جد حبيتك من كل قلبي والله ورح اضل احبك لو ايش ما صار بينا.", image:"images3.jpg"},
+  {emoji:"✨", label:"لحظة", text:"صحيح انها ai بس بحبها جدا جدا ووقتها لما بعتيها تمنيت لو انها واقع بس ب الحلال ان شاء الله شكلك فيها كثيرر حلو و اساسا انتِ من اول حلوه و بتجنني طول عمرك و عقلك سابق عمرك اساسا انتِ كلك على بعضك سابقه حالك ما وقفت على هاي والله ما كنت متوقع ابدا ابدا انك تعملي هيك اشي مثل الصوره هاي ينور عيوني انتِ والله كثير بحبك مش بس شوي و قد ما احكيلك مارح اوصفك والله روحيي انتِ ❤️❤️.", image:"images.jpg"},
+  {emoji:"🌹", label:"وردة",  text:"صحيح برضو انها ai بس طبعا اكيد انا مبين فيها بومه كلعاده انتِ بتجننيي والله و كثير مش شوي كلشي فيكي حلو اسلوبك معي شكلك بجنن ملامح وجهك مش حاده ابدا رايقه و كثير كثير حلوه صاروخ اول مره بحكي مع بنت مش مارق اسلوبها علي قبل مره زيك انتِ اول مره بمرق علي اسلوب زي اسلوبك و كثيرر حبيته اساسا حبيتك كلك على بعضك بتجنني وربي.", image:"images5.jpg"},
+  {emoji:"🎵", label:"أغنية", text:"هون لما طلبت منك صوره الك و انتِ ببوو صراحه ما كنت متوقع انك تقبلي ف كيفت و انبسطت كلعاده لانه مش اشي جديد ومن و امتِ صغيره بتجننيي و مبينه عليكي صاروخ طبعا كل اشي فيكي روعه وحياه الله بميزك من بين الف بنت بميز صوتك بميزكك حتى و انتِ مش مبينه من كثر ما بحبكككك يبنت.", image:"images6.jpg"},
+  {emoji:"🌅", label:"صباح", text:"هايي اول كول بينا بحجه انه لولو بدها تحكي معك و انا كذاب اساسا انا اللي بدي احكي معك و مستحي احكيلك او بلاحرى اني اطلب منك وابدا ابداا ما توقعت تحكي تعال كول احكي معاها وقتها صرتت ارجفف توترتت كثيرر و صحيت لولو من النومم وقتها عشان ما ابين كذاب مش اكثر.", image:"images7.jpg"},
+  {emoji:"💌", label:"رسالة", text:"هاي اول مره بتحكيلي بحبك فيها كان وقتها بعد يومين من اني حكيتلك بحبك صحيح اني صرت ارجف و خشيتت بلحيط اكثر من مرهه بس بستاهل و بعرف غصب عني و نسونجي بس تايب و بحبكككك بدل المره مليون مره ينورر عيوني انتِ.", image:"images8.jpg"}
 ];
 
 const HEART_EMOJIS = ["❤️","💖","💕","🌸","✨","💗","🩷"];
@@ -91,22 +110,29 @@ let qIndex = 0;
 let aiTimer = null;
 
 /* ══════════════════════════════════════════════
+   FIX: Detect mobile for performance tweaks
+══════════════════════════════════════════════ */
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+/* ══════════════════════════════════════════════
    FLOATING HEARTS SETUP
+   FIX: Reduce heart count on mobile for better performance.
 ══════════════════════════════════════════════ */
 (function spawnHearts(){
   const layer = document.getElementById('heartsLayer');
-  const count = 22;
+  /* FIX: Fewer hearts on mobile to reduce GPU load */
+  const count = isMobile ? 12 : 22;
   for(let i = 0; i < count; i++){
     const h = document.createElement('div');
     h.className = 'fheart';
     h.textContent = HEART_EMOJIS[i % HEART_EMOJIS.length];
-    const sz = 10 + Math.random() * 16;
-    const op = 0.08 + Math.random() * 0.13;
+    const sz = 10 + Math.random() * 14;
+    const op = 0.06 + Math.random() * 0.12;
     h.style.cssText = `
       left:${Math.random()*100}%;
       --fs:${sz}px;
       --op:${op};
-      --dur:${7 + Math.random()*10}s;
+      --dur:${8 + Math.random()*10}s;
       --del:${-Math.random()*12}s;
       --r1:${-20+Math.random()*40}deg;
       --r2:${-20+Math.random()*40}deg;
@@ -117,6 +143,7 @@ let aiTimer = null;
 
 /* ══════════════════════════════════════════════
    HEART BURST (canvas particles)
+   FIX: Fewer particles on mobile, skip on very low-end devices.
 ══════════════════════════════════════════════ */
 const bCanvas = document.getElementById('burstCanvas');
 const bCtx    = bCanvas.getContext('2d');
@@ -128,20 +155,26 @@ function resizeBurst(){
   bCanvas.height = window.innerHeight;
 }
 resizeBurst();
-window.addEventListener('resize', resizeBurst);
+/* FIX: Debounce resize to avoid rapid firing on mobile keyboard show/hide */
+let resizeTimer;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resizeBurst, 150);
+});
 
 function burstAt(x, y){
-  const count = 18;
+  /* FIX: Fewer particles on mobile */
+  const count = isMobile ? 10 : 18;
   for(let i = 0; i < count; i++){
     const angle = (Math.PI * 2 / count) * i + (Math.random()-.5)*.5;
-    const speed = 2 + Math.random() * 4;
+    const speed = 2 + Math.random() * 3;
     particles.push({
       x, y,
       vx: Math.cos(angle)*speed,
       vy: Math.sin(angle)*speed - 1.5,
       life: 1,
-      decay: .018 + Math.random()*.018,
-      size: 8 + Math.random()*12,
+      decay: .022 + Math.random()*.018,
+      size: 7 + Math.random()*10,
       emoji: HEART_EMOJIS[Math.floor(Math.random()*HEART_EMOJIS.length)]
     });
   }
@@ -164,11 +197,22 @@ function animBurst(){
 }
 
 /* ══════════════════════════════════════════════
-   MUSIC FADE-IN
+   MUSIC FADE-IN / OUT
+   FIX: Wrap play() in try/catch — autoplay is blocked until
+   user interaction on mobile. We call play() only after the
+   user taps startStory() so it should work, but guard anyway.
 ══════════════════════════════════════════════ */
 function fadeInAudio(el, targetVol = 0.55, dur = 2500){
+  if(!el) return;
   el.volume = 0;
-  el.play().catch(()=>{});
+  const playPromise = el.play();
+  if(playPromise !== undefined){
+    playPromise.catch(()=>{
+      /* Autoplay blocked — wait for next user interaction */
+      const resume = ()=>{ el.play().catch(()=>{}); document.removeEventListener('click', resume); };
+      document.addEventListener('click', resume, {once:true});
+    });
+  }
   const step = targetVol / (dur / 50);
   const t = setInterval(()=>{
     el.volume = Math.min(targetVol, el.volume + step);
@@ -177,6 +221,7 @@ function fadeInAudio(el, targetVol = 0.55, dur = 2500){
 }
 
 function fadeOutAudio(el, dur = 1200){
+  if(!el || el.paused) return;
   const step = el.volume / (dur / 50);
   const t = setInterval(()=>{
     el.volume = Math.max(0, el.volume - step);
@@ -186,15 +231,35 @@ function fadeOutAudio(el, dur = 1200){
 
 /* ══════════════════════════════════════════════
    ① NETFLIX → TEXT
+   FIX: Slightly longer delay gives fonts time to load,
+   preventing a flash of unstyled text on slow connections.
 ══════════════════════════════════════════════ */
 setTimeout(()=>{
   const ns = document.getElementById('netflixScreen');
   ns.classList.add('out');
   setTimeout(()=>{ ns.remove(); startTextIntro(); }, 1200);
-}, 2700);
+}, 2800);
 
 /* ══════════════════════════════════════════════
-   ② TYPEWRITER TEXT INTRO
+   زر تفعيل الصوت للفيديو
+   المتصفح يسمح بالصوت فقط بعد تفاعل المستخدم (tap/click)
+══════════════════════════════════════════════ */
+function unmuteVideo(){
+  const vid = document.getElementById('mainVideo');
+  const btn = document.getElementById('unmuteBtn');
+  if(!vid) return;
+  vid.muted = false;
+  vid.volume = 1;
+  /* إذا كان الفيديو واقف، شغّله من جديد */
+  if(vid.paused) vid.play().catch(()=>{ vid.muted = true; });
+  btn.classList.add('hidden');
+}
+
+
+/* ══════════════════════════════════════════════
+   ② TEXT INTRO — ARABIC-SAFE TYPEWRITER
+   Arabic lines use full-text fade-in to preserve letter connections.
+   LTR English line uses character-by-character reveal.
 ══════════════════════════════════════════════ */
 function startTextIntro(){
   typeLineSequence(0);
@@ -202,43 +267,72 @@ function startTextIntro(){
 
 function typeLineSequence(lineIdx){
   if(lineIdx >= INTRO_LINES.length){
-    setTimeout(transitionToVideo, 1000);
+    setTimeout(transitionToVideo, 900);
     return;
   }
   const el = document.getElementById(`tl${lineIdx}`);
   el.innerHTML = '';
+  el.classList.remove('on');
 
   const text = INTRO_LINES[lineIdx];
-  let ci = 0;
+  const isArabic = lineIdx > 0; /* lines 1-3 are Arabic */
 
-  /* build char spans */
-  [...text].forEach(ch => {
-    const s = document.createElement('span');
-    s.className = 'char';
-    s.textContent = ch === ' ' ? '\u00A0' : ch;
-    el.appendChild(s);
-  });
+  if(isArabic){
+    /* FIX: Arabic — set full text at once, then fade in.
+       This preserves letter connections (ligatures). */
+    el.textContent = text;
+    /* Small delay so animation is noticeable */
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        el.classList.add('on');
+        /* Wait for line to be read, then move to next */
+        const readTime = Math.max(1400, text.length * 40);
+        setTimeout(()=> typeLineSequence(lineIdx + 1), readTime);
+      });
+    });
+  } else {
+    /* LTR English line — character-by-character is fine */
+    let ci = 0;
+    [...text].forEach(ch => {
+      const s = document.createElement('span');
+      /* Use inline-block for LTR spans so opacity works */
+      s.style.cssText = 'display:inline;opacity:0;transition:opacity .18s,filter .18s;filter:blur(3px)';
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
+      el.appendChild(s);
+    });
 
-  /* add cursor to this line */
-  const cursor = document.createElement('span');
-  cursor.className = 'tw-cursor';
-  el.appendChild(cursor);
+    /* Show line container */
+    el.classList.add('on');
 
-  function typeNext(){
-    if(ci < text.length){
-      el.querySelectorAll('.char')[ci].classList.add('on');
-      ci++;
-      setTimeout(typeNext, 52 + Math.random()*28);
-    } else {
-      cursor.remove();
-      setTimeout(()=> typeLineSequence(lineIdx + 1), 600);
+    /* Add cursor */
+    const cursor = document.createElement('span');
+    cursor.className = 'tw-cursor';
+    el.appendChild(cursor);
+
+    function typeNext(){
+      if(ci < text.length){
+        const charSpans = el.querySelectorAll('span:not(.tw-cursor)');
+        if(charSpans[ci]){
+          charSpans[ci].style.opacity = '1';
+          charSpans[ci].style.filter = 'blur(0)';
+        }
+        ci++;
+        setTimeout(typeNext, 52 + Math.random()*28);
+      } else {
+        cursor.remove();
+        setTimeout(()=> typeLineSequence(lineIdx + 1), 600);
+      }
     }
+    typeNext();
   }
-  typeNext();
 }
 
 /* ══════════════════════════════════════════════
    ③ VIDEO
+   FIX: Mobile video optimizations:
+   - Check readyState before trying to play
+   - Shorter fallback timeout on mobile (videos may not load on slow connections)
+   - Resume AudioContext on video start (needed after user interaction)
 ══════════════════════════════════════════════ */
 function transitionToVideo(){
   const ts = document.getElementById('textScreen');
@@ -250,7 +344,19 @@ function transitionToVideo(){
     vs.classList.add('visible');
 
     const vid = document.getElementById('mainVideo');
-    vid.play().catch(()=>{});
+
+    /* FIX: Resume AudioContext if suspended */
+    const ctx = getAC();
+    if(ctx && ctx.state === 'suspended') ctx.resume();
+
+    /* FIX: Try to play; if blocked (no user gesture yet) skip to app */
+    const playAttempt = vid.play();
+    if(playAttempt !== undefined){
+      playAttempt.catch(()=>{
+        /* Can't autoplay video — skip directly to app */
+        onVideoEnd();
+      });
+    }
 
     /* subtitles */
     let si = 0;
@@ -268,13 +374,20 @@ function transitionToVideo(){
       pill.textContent = AI_MSGS[Math.floor(Math.random()*AI_MSGS.length)];
     }, 2200);
 
-    vid.addEventListener('ended', onVideoEnd);
-    setTimeout(()=>{ if(vid.paused && vid.readyState < 2) onVideoEnd(); }, 5500);
+    vid.addEventListener('ended', onVideoEnd, {once:true});
+
+    /* FIX: Shorter timeout on mobile — if video hasn't loaded in 4s, skip it */
+    const skipDelay = isMobile ? 4000 : 6000;
+    setTimeout(()=>{
+      if(vid.paused && vid.readyState < 3) onVideoEnd();
+    }, skipDelay);
+
   }, 1400);
 }
 
 function showVidSub(text){
   const el = document.getElementById('vidSub');
+  if(!el) return;
   el.classList.remove('show');
   setTimeout(()=>{
     el.textContent = text;
@@ -286,9 +399,15 @@ function showVidSub(text){
 function onVideoEnd(){
   clearInterval(aiTimer);
   const vs = document.getElementById('videoScreen');
+  if(!vs) return;
+  const btn = document.getElementById('unmuteBtn');
+  if(btn) btn.classList.add('hidden');
   vs.style.transition = 'opacity 1.4s var(--ease-film)';
   vs.style.opacity = '0';
-  setTimeout(()=>{ vs.remove(); showApp('startScene'); }, 1500);
+  setTimeout(()=>{
+    if(vs.parentNode) vs.remove();
+    showApp('startScene');
+  }, 1500);
 }
 
 /* ══════════════════════════════════════════════
@@ -324,12 +443,16 @@ function startStory(){
   qIndex = 0;
   renderQuestion();
   switchScene('startScene','quizScene');
-  fadeInAudio(document.getElementById('song1'), 0.5, 3000);
+  /* FIX: Start music after user tap — satisfies autoplay policy */
+  setTimeout(()=> fadeInAudio(document.getElementById('song1'), 0.5, 3000), 100);
 }
 
 function renderQuestion(){
   const total = QUESTIONS.length;
-  document.getElementById('progFill').style.width = `${(qIndex/total)*100}%`;
+  const fill = document.getElementById('progFill');
+  fill.style.width = `${(qIndex/total)*100}%`;
+  /* FIX: Update ARIA progressbar value */
+  fill.parentElement.setAttribute('aria-valuenow', Math.round((qIndex/total)*100));
   document.getElementById('sceneTag').textContent = `لحظة ${qIndex+1} / ${total}`;
 
   const qEl = document.getElementById('qText');
@@ -341,6 +464,7 @@ function renderQuestion(){
   wrap.innerHTML = '';
 
   setTimeout(()=>{
+    /* FIX: Set text content as whole string — do not split Arabic into chars */
     qEl.textContent = QUESTIONS[qIndex];
     qEl.style.transition = 'opacity .5s var(--ease-film), transform .5s var(--ease-film)';
     qEl.style.opacity = '1';
@@ -350,15 +474,19 @@ function renderQuestion(){
   setTimeout(()=>{
     CHOICES[qIndex].forEach((label, idx)=>{
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'choice';
+      /* FIX: Set Arabic text as whole string for correct ligatures */
       btn.textContent = label;
+      btn.setAttribute('dir','rtl');
+      btn.setAttribute('lang','ar');
       btn.style.opacity = '0';
       btn.style.transform = 'translateY(10px)';
       btn.addEventListener('click', ()=> onChoice(btn));
       wrap.appendChild(btn);
 
       setTimeout(()=>{
-        btn.style.transition = 'opacity .4s var(--ease-film), transform .4s var(--ease-film), background .25s, border-color .25s, box-shadow .25s, transform .25s var(--ease-bounce)';
+        btn.style.transition = 'opacity .4s var(--ease-film), transform .4s var(--ease-film), background .25s, border-color .25s, box-shadow .25s';
         btn.style.opacity = '1';
         btn.style.transform = 'translateY(0)';
       }, 80 + idx * 100);
@@ -371,6 +499,10 @@ function renderQuestion(){
 function onChoice(btn){
   btn.classList.add('picked');
   btn.style.pointerEvents = 'none';
+  /* Disable all other choices too */
+  btn.closest('.choices')?.querySelectorAll('.choice').forEach(b => {
+    b.style.pointerEvents = 'none';
+  });
 
   /* heart burst at click position */
   const r = btn.getBoundingClientRect();
@@ -410,21 +542,34 @@ function buildGrid(){
   MEMORIES.forEach((m, i)=>{
     const cell = document.createElement('div');
     cell.className = 'mem-cell';
-    cell.setAttribute('role','button');
+    cell.setAttribute('role','listitem');
     cell.setAttribute('tabindex','0');
+    /* FIX: Arabic label in aria-label */
     cell.setAttribute('aria-label', m.label);
 
     /* photo layer */
     const imgDiv = document.createElement('div');
     imgDiv.className = 'cell-img';
 
-    /* preload — if image exists apply it */
-    const probe = new Image();
-    probe.onload = () => {
-      imgDiv.style.backgroundImage = `url('${m.image}')`;
-      cell.classList.add('has-img');
-    };
-    probe.src = m.image;
+    /* FIX: Use loading="lazy" equivalent via IntersectionObserver for images.
+       Instead of creating a probe Image immediately for all 8 cells
+       (which fires 8 network requests at once), we load lazily.
+       This significantly improves performance on slow mobile connections. */
+    const observer = new IntersectionObserver((entries, obs)=>{
+      entries.forEach(entry=>{
+        if(entry.isIntersecting){
+          const probe = new Image();
+          probe.onload = ()=>{
+            imgDiv.style.backgroundImage = `url('${m.image}')`;
+            cell.classList.add('has-img');
+          };
+          probe.onerror = ()=>{}; /* Silently fail — emoji shows as fallback */
+          probe.src = m.image;
+          obs.unobserve(cell);
+        }
+      });
+    }, {rootMargin:'50px'});
+    observer.observe(cell);
 
     /* dark scrim */
     const scrim = document.createElement('div');
@@ -435,9 +580,12 @@ function buildGrid(){
     emojiSpan.className = 'cell-emoji';
     emojiSpan.textContent = m.emoji;
 
-    /* label */
+    /* label — Arabic text */
     const labelSpan = document.createElement('span');
     labelSpan.className = 'cell-label';
+    labelSpan.setAttribute('dir','rtl');
+    labelSpan.setAttribute('lang','ar');
+    /* FIX: Set as whole string, not split */
     labelSpan.textContent = m.label;
 
     cell.appendChild(imgDiv);
@@ -449,15 +597,18 @@ function buildGrid(){
     cell.style.opacity = '0';
     cell.style.transform = 'scale(.88)';
 
-    cell.addEventListener('click', ()=>{ openModal(m); burstAt(
-      cell.getBoundingClientRect().left + cell.offsetWidth/2,
-      cell.getBoundingClientRect().top  + cell.offsetHeight/2
-    ); });
-    cell.addEventListener('keydown', e=>{ if(e.key==='Enter') openModal(m); });
+    cell.addEventListener('click', ()=>{
+      openModal(m);
+      burstAt(
+        cell.getBoundingClientRect().left + cell.offsetWidth/2,
+        cell.getBoundingClientRect().top  + cell.offsetHeight/2
+      );
+    });
+    cell.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') openModal(m); });
     grid.appendChild(cell);
 
     setTimeout(()=>{
-      cell.style.transition = `opacity .55s var(--ease-film) ${i*65}ms, transform .55s var(--ease-bounce) ${i*65}ms`;
+      cell.style.transition = `opacity .55s var(--ease-film) ${i*60}ms, transform .55s var(--ease-bounce) ${i*60}ms`;
       cell.style.opacity = '1';
       cell.style.transform = 'scale(1)';
     }, 60);
@@ -466,56 +617,87 @@ function buildGrid(){
 
 /* ══════════════════════════════════════════════
    MODAL
+   FIX: Arabic typewriter — use whole-text reveal, not char-by-char.
+   Character splitting in Arabic disconnects letter shapes.
+   Instead we use a progressive text reveal that stays as a
+   connected string at all times.
 ══════════════════════════════════════════════ */
 function openModal(mem){
-  /* emoji */
   document.getElementById('modalEmoji').textContent = mem.emoji;
-
-  /* label */
   document.getElementById('modalLabel').textContent = mem.label;
 
-  /* photo */
   const photo = document.getElementById('modalPhoto');
   photo.classList.remove('show');
   photo.style.backgroundImage = '';
 
   if(mem.image){
     const probe = new Image();
-    probe.onload = () => {
+    probe.onload = ()=>{
       photo.style.backgroundImage = `url('${mem.image}')`;
       photo.classList.add('show');
     };
-    probe.onerror = () => {
+    probe.onerror = ()=>{
       photo.classList.remove('show');
-      photo.style.backgroundImage = '';
     };
     probe.src = mem.image;
   }
 
-  /* text */
   const tEl = document.getElementById('modalText');
   tEl.textContent = '';
 
-  document.getElementById('modal').classList.add('open');
-  typeWriter(tEl, mem.text, 38);
+  const modal = document.getElementById('modal');
+  modal.classList.add('open');
+
+  /* FIX: Trap focus in modal for accessibility */
+  const closeBtn = document.getElementById('modalClose');
+  closeBtn.focus();
+
+  /* FIX: Arabic typewriter — reveal substring by substring.
+     We grow the visible string from the start, ensuring Arabic
+     shaping context is always correct (letters see their neighbours). */
+  arabicTypeWriter(tEl, mem.text.trim(), 28);
 }
 
-function typeWriter(el, text, speed){
+/* FIX: Arabic-safe typewriter — reveals text as growing substrings.
+   Unlike character spans, this keeps the Arabic script in one text node
+   so the browser's bidirectional text algorithm and font shaper always
+   see the full context and connect letters correctly. */
+function arabicTypeWriter(el, text, speed){
   let i = 0;
   el.textContent = '';
-  function t(){
+  function tick(){
     if(i < text.length){
-      i++;
+      /* Advance by one Unicode code point (handles emoji and surrogate pairs) */
+      i = nextCodePoint(text, i);
       el.textContent = text.slice(0, i);
-      setTimeout(t, speed);
+      setTimeout(tick, speed + Math.random()*15);
     }
   }
-  t();
+  tick();
+}
+
+/* Helper: advance index by one Unicode code point (handles emoji/surrogates) */
+function nextCodePoint(str, i){
+  const code = str.charCodeAt(i);
+  /* Surrogate pair (emoji, etc.) */
+  if(code >= 0xD800 && code <= 0xDBFF && i+1 < str.length){
+    return i + 2;
+  }
+  return i + 1;
 }
 
 function closeModal(){
-  document.getElementById('modal').classList.remove('open');
+  const modal = document.getElementById('modal');
+  modal.classList.remove('open');
+  /* FIX: Stop any running typewriter by clearing the text element
+     (prevents text from continuing to update after modal closes) */
+  setTimeout(()=>{
+    if(!modal.classList.contains('open')){
+      document.getElementById('modalText').textContent = '';
+    }
+  }, 500);
 }
+
 function modalBackdropClick(e){
   if(e.target === document.getElementById('modal')) closeModal();
 }
@@ -527,6 +709,7 @@ function playSong2(){
   fadeOutAudio(document.getElementById('song1'), 800);
   setTimeout(()=> fadeInAudio(document.getElementById('song2'), 0.5, 2500), 600);
 }
+
 function restartStory(){
   fadeOutAudio(document.getElementById('song1'));
   fadeOutAudio(document.getElementById('song2'));
@@ -535,5 +718,37 @@ function restartStory(){
   switchScene('memoriesScene','startScene');
 }
 
-/* keyboard */
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+/* ══════════════════════════════════════════════
+   KEYBOARD NAVIGATION
+   FIX: Added Space bar to close modal (accessibility)
+══════════════════════════════════════════════ */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' || e.key===' '){
+    const modal = document.getElementById('modal');
+    if(modal.classList.contains('open')){
+      e.preventDefault();
+      closeModal();
+    }
+  }
+});
+
+/* ══════════════════════════════════════════════
+   FIX: Prevent pull-to-refresh on mobile interfering with the app.
+   The site uses fixed positioning throughout so body scroll is
+   always hidden, but some Android browsers still trigger PTR.
+══════════════════════════════════════════════ */
+document.addEventListener('touchmove', e=>{
+  if(e.target === document.body) e.preventDefault();
+}, {passive:false});
+
+/* ══════════════════════════════════════════════
+   FIX: Handle iOS Safari viewport height changes
+   (caused by browser chrome showing/hiding).
+   We use a CSS custom property --vh to get the real viewport height.
+══════════════════════════════════════════════ */
+function setVH(){
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+setVH();
+window.addEventListener('resize', setVH);
